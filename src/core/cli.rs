@@ -38,8 +38,7 @@ pub enum Command {
     List,
     /// Show information about a snippet.
     Show {
-        /// The path of the snippet to show information about.
-        #[arg(short, long)]
-        path: Option<PathBuf>,
+        /// The name of the snippet to show information about.
+        name: String,
     },
 }

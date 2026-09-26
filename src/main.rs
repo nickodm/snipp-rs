@@ -16,6 +16,23 @@ fn get_dirs() -> Result<ProjectDirs> {
     Ok(dirs)
 }
 
+fn print_snippet(snipp: &Snippet) -> Result<()> {
+    let meta = snipp.metadata();
+
+    println!("Name          : {}", meta.name());
+    println!("File count    : {}", snipp.file_count()?);
+
+    if let Some(date) = meta.creation_date() {
+        println!("Creation date : {}", date.format("%Y/%m/%d %H:%M"));
+    }
+
+    if let Some(desc) = meta.description() {
+        println!("Description   : {}", desc);
+    }
+
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let cwd = env::current_dir()?;
     let dirs = get_dirs()?;
@@ -64,22 +81,15 @@ fn main() -> Result<()> {
             println!("---\nTotal: {}", counter - 1);
         }
 
-        Command::Show { path } => {
-            if let Some(p) = path {
-                let snipp = Snippet::load(p)?;
-                let meta = snipp.metadata();
+        Command::Show { name } => {
+            let path = saves_dir.join(name).with_extension("snipp");
 
-                println!("Name          : {}", meta.name());
-                println!("File count    : {}", snipp.file_count()?);
-
-                if let Some(date) = meta.creation_date() {
-                    println!("Creation date : {}", date.format("%Y/%m/%d %H:%M"));
-                }
-
-                if let Some(desc) = meta.description() {
-                    println!("Description   : {}", desc);
-                }
+            if !path.try_exists()? {
+                bail!("Snippet not found.")
             }
+
+            let snipp = Snippet::load(&path)?;
+            print_snippet(&snipp)?;
         }
     }
 
