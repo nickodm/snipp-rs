@@ -2,7 +2,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 use zip::ZipArchive;
@@ -103,6 +103,8 @@ impl Snippet {
         let walk = WalkDir::new(origin);
         let contents = PathBuf::from("contents");
 
+        let mut buffer = [0; 4096];
+
         for entry in walk {
             let entry = entry?;
             let path = &entry.path();
@@ -115,8 +117,17 @@ impl Snippet {
             let relative = contents.join(relative);
             zf.start_file_from_path(relative, opt)?;
 
-            let contents: Vec<u8> = std::fs::read(&entry.path())?;
-            zf.write(&contents)?;
+            let mut file = File::open(path)?;
+
+            loop {
+                let read: usize = file.read(&mut buffer)?;
+
+                if read == 0 {
+                    break;
+                }
+
+                zf.write(&buffer[..read])?;
+            }
         }
 
         Ok(())
