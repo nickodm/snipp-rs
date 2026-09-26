@@ -115,26 +115,58 @@ impl Snippet {
             let relative = contents.join(relative);
             zf.start_file_from_path(relative, opt)?;
 
-            zf.write(&std::fs::read(&entry.path())?)?;
+            let contents: Vec<u8> = std::fs::read(&entry.path())?;
+            zf.write(&contents)?;
         }
 
         Ok(())
     }
 
-    pub fn file_names(&self) -> Result<Vec<String>> {
+    pub fn iter(&self) -> Result<SnippIter> {
         let f = File::open(&self.path)?;
         let zf = ZipArchive::new(f)?;
-        let names: Vec<String> = zf.file_names().map(|name| name.to_string()).collect();
-        Ok(names)
+        Ok(SnippIter::new(zf))
     }
 
+    /// Count the files inside the snippet's contents. It does not include the metadata files that
+    /// are not deployed.
     pub fn file_count(&self) -> Result<usize> {
-        let f = File::open(&self.path)?;
-        let zf = ZipArchive::new(f)?;
-        let count: usize = zf
-            .file_names()
+        Ok(self
+            .iter()?
             .filter(|name| name.starts_with("contents/"))
-            .count();
-        Ok(count)
+            .count())
     }
 }
+
+pub struct SnippIter {
+    zf: ZipArchive<File>,
+    index: usize,
+}
+
+impl SnippIter {
+    pub fn new(zf: ZipArchive<File>) -> Self {
+        Self { zf, index: 0 }
+    }
+}
+
+impl Iterator for SnippIter {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.zf.len() {
+            return None;
+        }
+
+        let zfile = self.zf.by_index(self.index).ok()?;
+        let filename = zfile.name().to_string();
+        self.index += 1;
+        Some(filename)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.zf.len().saturating_sub(self.index);
+        (remaining, Some(remaining))
+    }
+}
+
+impl ExactSizeIterator for SnippIter {}
