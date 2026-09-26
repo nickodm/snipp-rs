@@ -45,6 +45,25 @@ fn main() -> Result<()> {
 
             println!("Created snippet: \"{}\"", meta.name());
         }
+
+        Command::List => {
+            let walk = walkdir::WalkDir::new(saves_dir);
+            let mut counter: usize = 1;
+
+            for entry in walk {
+                let entry = entry?;
+                let path = entry.path();
+
+                if let Ok(snipp) = Snippet::load(path) {
+                    let meta = snipp.metadata();
+                    println!("[{:>2}] {}", counter, meta.name());
+                    counter += 1;
+                }
+            }
+
+            println!("---\nTotal: {}", counter - 1);
+        }
+
         Command::Show { path } => {
             if let Some(p) = path {
                 let snipp = Snippet::load(p)?;

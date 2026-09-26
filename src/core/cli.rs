@@ -34,6 +34,8 @@ pub enum Command {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+    /// List all the saved snippets.
+    List,
     /// Show information about a snippet.
     Show {
         /// The path of the snippet to show information about.
