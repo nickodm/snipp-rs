@@ -1,9 +1,10 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 use walkdir::WalkDir;
 use zip::ZipArchive;
 use zip::write::{SimpleFileOptions, ZipWriter};
@@ -33,6 +34,69 @@ impl Metadata {
     }
 }
 
+pub const NAME_MIN_LEN: usize = 3;
+
+#[derive(Error, Debug)]
+pub enum InvalidNameError {
+    #[error("Name is too short. [minimum length: {NAME_MIN_LEN}]")]
+    TooShort,
+    #[error("Invalid char: '{0}'.")]
+    InvalidChar(char),
+    #[error("Name cannot include any spaces. Replace it with '-' or '_'.")]
+    Spaces,
+    #[error("The name cannot start with '{0}'.")]
+    BadStart(char),
+}
+
+/// Check whether a snippet's name only contains letters, numbers, underscores and dashes.
+pub fn validate_name<S: ToString>(name: S) -> Result<(), InvalidNameError> {
+    let name = name.to_string();
+
+    if name.len() < NAME_MIN_LEN {
+        return Err(InvalidNameError::TooShort);
+    } else if name.starts_with("-") {
+        let c = name.chars().next().unwrap();
+        return Err(InvalidNameError::BadStart(c));
+    }
+
+    let chars = name.chars();
+
+    for c in chars {
+        if c == ' ' {
+            return Err(InvalidNameError::Spaces);
+        }
+
+        let is_valid = (c >= 'A' && c <= 'Z')
+            || (c >= 'a' && c <= 'z')
+            || (c >= '0' && c <= '9')
+            || (c == '-')
+            || (c == '_');
+
+        if !is_valid {
+            return Err(InvalidNameError::InvalidChar(c));
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_name_validation() {
+    assert!(validate_name("my_snippet").is_ok());
+    assert!(validate_name("my-snippet").is_ok());
+    assert!(validate_name("mysnippet").is_ok());
+    assert!(validate_name("mysnippet3").is_ok());
+    assert!(validate_name("MY_SNIPPET").is_ok());
+    assert!(validate_name("mys").is_ok());
+
+    assert!(validate_name("sn").is_err());
+    assert!(validate_name("my snippet").is_err());
+    assert!(validate_name("my").is_err());
+    assert!(validate_name("").is_err());
+    assert!(validate_name("my@snippet").is_err());
+    assert!(validate_name("-mysnippet").is_err());
+}
+
 #[derive(Debug)]
 pub struct Snippet {
     metadata: Metadata,
@@ -49,8 +113,11 @@ impl Snippet {
         source: impl AsRef<Path>,
         output: impl AsRef<Path>,
     ) -> Result<Self> {
+        let name = name.into();
+        validate_name(&name)?;
+
         let metadata = Metadata {
-            name: name.into(),
+            name,
             description: description.map(|s| s.into()),
             creation_date: Some(Utc::now()),
             software_version: (0, 1, 0),
@@ -78,6 +145,8 @@ impl Snippet {
             let metafile = zf.by_name(Metadata::FILENAME)?;
             metadata = serde_json::from_reader(metafile)?;
         }
+
+        validate_name(&metadata.name)?;
 
         Ok(Self {
             metadata,

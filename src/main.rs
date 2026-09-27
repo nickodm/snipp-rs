@@ -8,6 +8,8 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
+use crate::core::validate_name;
+
 fn get_dirs() -> Result<ProjectDirs> {
     let dirs = ProjectDirs::from("com", "Nicolás Miranda", "Snipp")
         .context("Unable to fetch directories for the operative system")?;
@@ -85,6 +87,8 @@ fn main() -> Result<()> {
                     .join(&name)
                     .with_extension(Snippet::SUFFIX),
             };
+
+            validate_name(&name)?;
 
             let path = saves_dir.join(&name).with_extension(Snippet::SUFFIX);
 
