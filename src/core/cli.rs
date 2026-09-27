@@ -42,6 +42,14 @@ pub enum Command {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+    /// Export a saved snippet.
+    Export {
+        /// The name of the snippet to export.
+        #[arg(short, long)]
+        name: String,
+        /// The output path or directory where the snippet will be exported.
+        output: Option<PathBuf>,
+    },
     /// List all the saved snippets.
     List,
     /// Show information about a snippet.

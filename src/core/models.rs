@@ -40,7 +40,7 @@ pub struct Snippet {
 }
 
 impl Snippet {
-    const SUFFIX: &str = "snipp";
+    pub const SUFFIX: &str = "snipp";
 
     /// Create a new Snippet.
     pub fn create(
