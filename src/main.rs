@@ -34,7 +34,6 @@ fn print_snippet(snipp: &Snippet) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    let cwd = env::current_dir()?;
     let dirs = get_dirs()?;
 
     let saves_dir = dirs.data_dir().join("saves");
@@ -48,7 +47,10 @@ fn main() -> Result<()> {
             source,
             output,
         } => {
-            let source: PathBuf = source.unwrap_or(cwd);
+            let source: PathBuf = match source {
+                Some(p) => p,
+                None => env::current_dir()?,
+            };
 
             if !source.try_exists()? {
                 bail!("The source at \"{}\" doesn't exists.", source.display());
@@ -61,6 +63,29 @@ fn main() -> Result<()> {
             let meta = snipp.metadata();
 
             println!("Created snippet: \"{}\"", meta.name());
+        }
+
+        Command::Deploy { name, output } => {
+            let output = match output {
+                Some(p) => p,
+                None => env::current_dir()?,
+            };
+
+            let path = saves_dir.join(name).with_extension("snipp");
+
+            if !path.try_exists()? {
+                bail!("Snippet not found.")
+            }
+
+            let snipp = Snippet::load(&path)?;
+            let meta = snipp.metadata();
+            snipp.deploy(&output)?;
+
+            println!(
+                "Deployed \"{}\" snippet to \"{}\".",
+                meta.name(),
+                output.display()
+            );
         }
 
         Command::List => {

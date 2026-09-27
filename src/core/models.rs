@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -128,6 +128,51 @@ impl Snippet {
 
                 zf.write(&buffer[..read])?;
             }
+        }
+
+        Ok(())
+    }
+
+    /// Extract all the files inside the snippet's contents. It does not include any file outside
+    /// the `contents/` dir.
+    pub fn deploy<P: AsRef<Path>>(&self, output: P) -> Result<()> {
+        let output = output.as_ref();
+        let f = File::open(&self.path)?;
+        let mut zf = ZipArchive::new(f)?;
+        let mut buffer = [0u8; 8192]; // 8 Kib
+        let mut i = 0;
+
+        while let Ok(mut zfile) = zf.by_index(i) {
+            let path = match zfile.enclosed_name() {
+                Some(p) => p,
+                None => zfile.mangled_name(),
+            };
+
+            if !path.starts_with("contents/") {
+                i += 1;
+                continue;
+            }
+
+            let relative = path.strip_prefix("contents/")?;
+            let dest_path = output.join(relative);
+
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+
+            let mut destiny = File::create(output.join(relative))?;
+
+            loop {
+                let read = zfile.read(&mut buffer)?;
+
+                if read == 0 {
+                    break;
+                }
+
+                destiny.write(&buffer[..read])?;
+            }
+
+            i += 1;
         }
 
         Ok(())

@@ -34,6 +34,14 @@ pub enum Command {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+    /// Deploy a snippet.
+    Deploy {
+        /// The name of the snippet to deploy.
+        #[arg(short, long)]
+        name: String,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
     /// List all the saved snippets.
     List,
     /// Show information about a snippet.
