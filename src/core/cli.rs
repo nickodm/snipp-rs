@@ -47,8 +47,13 @@ pub enum Command {
         /// The name of the snippet to export.
         #[arg(short, long)]
         name: String,
-        /// The output path or directory where the snippet will be exported.
+        /// The output path or directory where the snippet will be exported. [Defaults to current
+        /// working directory]
+        #[arg(short, long)]
         output: Option<PathBuf>,
+        /// Whether to force the output overwriting if already exists.
+        #[arg(short, long)]
+        force: bool,
     },
     /// List all the saved snippets.
     List,

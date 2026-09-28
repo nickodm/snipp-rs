@@ -6,6 +6,7 @@ use core::cli::Command;
 use directories::ProjectDirs;
 use std::env;
 use std::fs;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use crate::core::validate_name;
@@ -47,6 +48,27 @@ fn print_snippet(snipp: &Snippet) -> Result<()> {
     Ok(())
 }
 
+/// Ask the user for confirmation.
+fn yes_or_no<S: ToString>(prompt: S) -> Result<bool> {
+    let prompt = prompt.to_string();
+    let mut stdin = std::io::stdin();
+    let mut stdout = std::io::stdout();
+    let mut buffer = [0; 1];
+
+    print!("{} [y/n]: ", prompt);
+    stdout.flush()?;
+
+    stdin.read(&mut buffer)?;
+
+    let c = char::from(buffer[0]);
+
+    match c {
+        'y' | 'Y' => return Ok(true),
+        'n' | 'N' => return Ok(false),
+        e => bail!("Invalid character: '{e}'. Use 'y' or 'n'."),
+    }
+}
+
 fn main() -> Result<()> {
     let dirs = get_dirs()?;
 
@@ -79,16 +101,28 @@ fn main() -> Result<()> {
             println!("Created snippet: \"{}\"", meta.name());
         }
 
-        Command::Export { name, output } => {
+        Command::Export {
+            name,
+            output,
+            force,
+        } => {
+            validate_name(&name)?;
+
             let output = match output {
-                Some(o) if o.is_file() => o,
-                Some(o) => o.join(&name).with_extension(Snippet::SUFFIX),
+                Some(o) if o.is_dir() => o.join(&name).with_extension(Snippet::SUFFIX),
+                Some(o) if let None = o.extension() => o.with_extension(Snippet::SUFFIX),
+                Some(o) => o,
                 None => env::current_dir()?
                     .join(&name)
                     .with_extension(Snippet::SUFFIX),
             };
 
-            validate_name(&name)?;
+            if !force
+                && output.try_exists()?
+                && !yes_or_no("The output already exists. Overwrite?")?
+            {
+                bail!("Aborted.");
+            }
 
             let path = saves_dir.join(&name).with_extension(Snippet::SUFFIX);
 
