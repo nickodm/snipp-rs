@@ -97,6 +97,9 @@ fn test_name_validation() {
     assert!(validate_name("-mysnippet").is_err());
 }
 
+/// The buffer size for reading files from source and zip archive.
+pub const BUFFER_SIZE: usize = 8192; // 8Kib
+
 #[derive(Debug)]
 pub struct Snippet {
     metadata: Metadata,
@@ -172,7 +175,7 @@ impl Snippet {
         let walk = WalkDir::new(origin);
         let contents = PathBuf::from("contents");
 
-        let mut buffer = [0; 4096];
+        let mut buffer = [0; BUFFER_SIZE];
 
         for entry in walk {
             let entry = entry?;
@@ -208,7 +211,7 @@ impl Snippet {
         let output = output.as_ref();
         let f = File::open(&self.path)?;
         let mut zf = ZipArchive::new(f)?;
-        let mut buffer = [0u8; 8192]; // 8 Kib
+        let mut buffer = [0u8; BUFFER_SIZE];
         let mut i = 0;
 
         while let Ok(mut zfile) = zf.by_index(i) {
