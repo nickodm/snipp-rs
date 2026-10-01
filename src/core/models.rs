@@ -1,9 +1,11 @@
 use anyhow::{Result, bail};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
 use thiserror::Error;
 use walkdir::WalkDir;
 use zip::ZipArchive;
@@ -164,8 +166,12 @@ impl Snippet {
     fn compress(&self, source: impl AsRef<Path>, destiny: impl AsRef<Path>) -> Result<()> {
         let origin = source.as_ref();
         let destiny = destiny.as_ref().to_path_buf().with_extension(Self::SUFFIX);
+        let parent = match destiny.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => env::current_dir()?,
+        };
 
-        let f = File::create(&destiny)?;
+        let f = NamedTempFile::new_in(parent)?;
         let mut zf = ZipWriter::new(f);
         let opt = SimpleFileOptions::default();
 
@@ -202,6 +208,9 @@ impl Snippet {
             }
         }
 
+        let f = zf.finish()?;
+        f.persist(&destiny)?;
+
         Ok(())
     }
 
@@ -227,12 +236,14 @@ impl Snippet {
 
             let relative = path.strip_prefix("contents/")?;
             let dest_path = output.join(relative);
+            let parent = match dest_path.parent() {
+                Some(parent) => parent,
+                None => output,
+            };
 
-            if let Some(parent) = dest_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
+            fs::create_dir_all(parent)?;
 
-            let mut destiny = File::create(output.join(relative))?;
+            let mut destiny = NamedTempFile::new_in(parent)?;
 
             loop {
                 let read = zfile.read(&mut buffer)?;
@@ -244,6 +255,7 @@ impl Snippet {
                 destiny.write(&buffer[..read])?;
             }
 
+            destiny.persist(dest_path)?;
             i += 1;
         }
 
